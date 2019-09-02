@@ -5,7 +5,8 @@ let
   inherit (nixpkgs) pkgs;
 
   f = { mkDerivation, array, base, containers
-      , criterion, deepseq, fgl, mtl, stdenv, text
+      , criterion, deepseq, directory, fgl, filepath, mtl, random
+      , random-shuffle, stdenv, text
       }:
       mkDerivation {
         pname = "alga-bench";
@@ -14,8 +15,8 @@ let
         isLibrary = false;
         isExecutable = true;
         executableHaskellDepends = [
-          array base containers criterion deepseq fgl mtl
-          text
+        array base containers criterion deepseq directory
+          fgl filepath mtl random random-shuffle text
         ];
         license = "unknown";
         hydraPlatforms = stdenv.lib.platforms.none;
