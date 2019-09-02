@@ -1,4 +1,4 @@
-{-# language TupleSections, LambdaCase, BangPatterns #-}
+{-# language ViewPatterns, TupleSections, LambdaCase, BangPatterns #-}
 
 module Main where
 
@@ -15,6 +15,8 @@ import qualified Algebra.Graph.AdjacencyIntMap as AIM
 import Data.Bifunctor
 import qualified Data.Graph.Typed as KL
 import Data.List hiding (transpose)
+import System.Directory
+import System.FilePath
 import Data.Tree
 import Data.Foldable
 
@@ -37,84 +39,74 @@ sgb wds = (word_graph, int_graph) where
   es = [ (iu,jv) | iu@(i,u) <- ws, jv@(j,v) <- ws, hamming u v == 1 ]
   ws = zip [0..] wds
 
+-- drop 2 because graphs start by giving # of vertices and edges
 read_real_world :: String -> AIM.AdjacencyIntMap
-read_real_world = AIM.edges . map edge_of_line . lines where
-  edge_of_line line = case map read (words line) of
-                        [s,t] -> (s,t)
+read_real_world = AIM.edges . map edge_of_line . drop 2 . lines where
+  edge_of_line (map read . words -> [s,t]) = (s,t)
 
-mkMesh = (filter (\(x,y) -> x < n' && y < n') $ concatMap
-         (\x -> let first = if (x+1) `mod` sq == 0 then [] else [(x,x+1)]
-                    second = if x+sq >= sq^(2 :: Int) then [] else [(x,x+sq)]
-                 in first ++ second)
-              [0..(sq^(2::Int))])
-  where
-    sq = 1 + sq'
-    sq' = round (sqrt $ fromRational $ toRational n' :: Double)
-    n = 4
-    n' = 10^n :: Int
+graphs_from_file file = do
+  let file_path = "asp/Networks/" <> file
+  aim <- read_real_world <$> readFile file_path
+  return (file, aim, fgl_of_alga aim, kl_of_alga aim)
+
+real_world_networks = do
+  listDirectory "asp/Networks"
 
 -- old alga definitions
 kldfs g = KL.dfsForest (KL.fromAdjacencyMap g)
 kldfs' g = KL.dfsForest (KL.fromAdjacencyIntMap g)
+make_acyclic g = AIM.edges [ e | e@(x,y) <- AIM.edgeList g, x < y ]
 
-words_graph = do
-  wds <- lines <$> readFile "sgb-words.txt"
-  let (!gw,!gi) = sgb wds
-      !es = AIM.edgeList gi
-      !kl = LG.buildG (0,length wds - 1) es
-      !sgv = AIM.vertexList gi
-      !sge = AIM.edgeList gi
-      !lggb = LG.buildG (minimum sgv,maximum sgv) sge
-      !fglgb = FGL.mkUGraph sgv sge :: FGL.UGr
-  withArgs ["-o","words-graph.html","--csv","words-graph.csv"] $ defaultMain
-    [ bgroup "String"
-      [ bench "new alga bfsForest" $ nf AM.bfsForest gw
-      , bench "new alga dfsForest" $ nf AM.dfsForest gw
-      , bench "old alga dfsForest" $ nf kldfs gw
-      ]
-    , bgroup "Int"
-      [ bench "new alga bfs" $ nf (AIM.bfs [1]) gi
-      , bench "fgl bfs" $ nf (FGL.bfs 1) fglgb
-      , bench "new alga dfsForest" $ nf AIM.dfsForest gi
-      , bench "old alga dfsForest" $ nf kldfs' gi
-      , bench "Data.Graph dff" $ nf LG.dff lggb
-      , bench "fgl dff'" $ nf FGL.dff' fglgb ] ]
+dfsgroup_of_real_world_network file = do
+  (!nm,!alga,!fgl,!kl) <- graphs_from_file file
+  return $ bgroup nm [ bench "new-alga" $ nf AIM.dfsForest alga
+                     , bench "old-alga" $ nf kldfs' alga
+                     , bench "fgl" $ nf FGL.dff' fgl
+                     , bench "kl" $ nf LG.dff kl ]
 
-misc_graphs = do
-  rwaim <- read_real_world <$> readFile "real_world.txt"
-  let !circuit = AIM.circuit [1..10000]
-      !clique = AIM.clique [1..500]
-      !circuit_fgl = fgl_of_alga circuit
-      !clique_fgl = fgl_of_alga clique
-      !circuit_kl = kl_of_alga circuit
-      !clique_kl = kl_of_alga clique
-      !rw_fgl = fgl_of_alga rwaim
-      !rw_kl = kl_of_alga rwaim
-      !mesh = AIM.edges mkMesh
-      !mesh_fgl = fgl_of_alga mesh
-      !mesh_kl = kl_of_alga mesh
-  withArgs ["-o", "misc-graphs.html","--csv","misc-graphs.csv"] $ defaultMain
-    [ bgroup "circuit 10000"
-      [ bench "new alga dfsForest" $ nf AIM.dfsForest circuit
-      , bench "old alga dfsForest" $ nf kldfs' circuit
-      , bench "fgl dff'" $ nf FGL.dff' circuit_fgl
-      , bench "containers dff" $ nf LG.dff circuit_kl ]
-    , bgroup "mesh 10000"
-      [ bench "new alga dfsForest" $ nf AIM.dfsForest mesh
-      , bench "old alga dfsForest" $ nf kldfs' mesh
-      , bench "fgl dff'" $ nf FGL.dff' mesh_fgl
-      , bench "containers dff" $ nf LG.dff mesh_kl ]
-    , bgroup "clique 500"
-      [ bench "new alga dfsForest" $ nf AIM.dfsForest clique
-      , bench "old alga dfsForest" $ nf kldfs' clique
-      , bench "fgl dff'" $ nf FGL.dff' clique_fgl
-      , bench "containers dff" $ nf LG.dff clique_kl ]
-    , bgroup "'real world'"
-      [ bench "new alga dfsForest" $ nf AIM.dfsForest rwaim
-      , bench "old alga dfsForest" $ nf kldfs' rwaim
-      , bench "fgl dff'" $ nf FGL.dff' rw_fgl
-      , bench "containers dff" $ nf LG.dff rw_kl ] ]
+bfsgroup_of_real_world_network file = do
+  (!nm,!alga,!fgl,!kl) <- graphs_from_file file
+  return $ bgroup nm [ bench "alga" $ nf (AIM.bfsForestFrom [0]) alga
+                     , bench "fgl" $ nf (FGL.bft 0) fgl ]
+
+topgroup_of_real_world_network file = do
+  (!nm,!alga,!fgl,!kl) <- graphs_from_file file
+  let 
+  return $ bgroup nm [ bench "alga" $ nf AIM.topSort alga
+                     , bench "kl" $ nf LG.topSort kl
+                     , bench "fgl" $ nf FGL.topsort fgl ]
+
+daggroup_of_real_world_network file = do
+  (!nm,!alga,_,_) <- graphs_from_file file
+  let !dalga = make_acyclic alga
+      !fgl = fgl_of_alga dalga
+      !kl = kl_of_alga dalga
+  return $ bgroup nm [ bench "alga" $ nf AIM.topSort dalga
+                     , bench "kl" $ nf LG.topSort kl
+                     , bench "fgl" $ nf FGL.topsort fgl ]
+
+depth_first_bench = do
+  groups <- mapM dfsgroup_of_real_world_network =<< real_world_networks
+  withArgs ["-o", "depth-first-bench.html","--json","depth-first-bench.json"] $
+    defaultMain $ groups
+
+breadth_first_bench = do
+  groups <- mapM bfsgroup_of_real_world_network =<< real_world_networks
+  withArgs ["-o", "breadth-first-bench.html","--json","breadth-first-bench.json"] $
+    defaultMain $ groups
+
+top_sort_bench = do
+  groups <- mapM topgroup_of_real_world_network =<< real_world_networks
+  withArgs ["-o", "topological-bench.html","--json","topological-bench.json"] $
+    defaultMain $ groups
+
+top_sort_dag_bench = do
+  groups <- mapM daggroup_of_real_world_network =<< real_world_networks
+  withArgs ["-o", "dag-topological-bench.html","--json","dag-topological-bench.json"] $
+    defaultMain $ groups
   
 main = do
-  words_graph
-  misc_graphs
+  depth_first_bench
+  breadth_first_bench
+  top_sort_bench
+  top_sort_dag_bench

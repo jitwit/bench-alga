@@ -18,6 +18,8 @@ executable alga-bench
                      , base
                      , text
                      , deepseq
+                     , directory
+                     , filepath
                      , algebraic-graphs
                      , fgl
                      , mtl
