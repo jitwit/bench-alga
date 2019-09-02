@@ -12,16 +12,17 @@
   (let* ((pts (filter (lambda (pt)
 			(string=? graph (car pt)))
 		      result))
-	 (new-alga (list-ref (car (filter (lambda (x)
-					    (string=? "new-alga" (list-ref x 1)))
-					  pts))
-			     2)))
-    (cons graph
-	  (map (lambda (pt)
-		 `(,(list-ref pt 1)
-		   ,(/ (list-ref pt 2)
-		       new-alga)))
-	       pts))))
+	 (new-alga (list-ref
+		     (car
+		       (filter (lambda (x)
+				 (string=? "new-alga" (list-ref x 1)))
+			       pts))
+		     2)))
+    (map (lambda (pt)
+	   `(,(list-ref pt 1)
+	     ,(/ (list-ref pt 2)
+		 new-alga)))
+	 pts)))
 
 (define (report->sexp file)
   (let ((sexp (format "~a.ss" (path-root file))))
@@ -50,6 +51,17 @@
 					       json))))))))
     `(,@name ,mean)))
 
+(define (side results)
+  (let ((headers (map car results))
+	(points (map (lambda (result)
+		       (map (lambda (col)
+			      (cons (caar col)
+				    (/ (apply + (apply append (map cdr col)))
+				       9)))
+			    (apply map list result)))
+		     (map cdr results))))
+    (map cons headers points)))
+
 (define (main)
   (let ((results (map report->sexp (reports)))
 	(out-file "alga-bench.ss"))
@@ -57,4 +69,4 @@
       (delete-file out-file))
     (with-output-to-file out-file
       (lambda ()
-	(pretty-print results)))))
+	(pretty-print (side results))))))
