@@ -55,7 +55,9 @@ real_world_networks = do
 -- old alga definitions
 kldfs g = KL.dfsForest (KL.fromAdjacencyMap g)
 kldfs' g = KL.dfsForest (KL.fromAdjacencyIntMap g)
-make_acyclic g = AIM.edges [ e | e@(x,y) <- AIM.edgeList g, x < y ]
+kltop g = case KL.topSort (KL.fromAdjacencyIntMap g) of
+  vs -> if AIM.isTopSortOf vs g then Just vs else Nothing 
+make_acyclic g = AIM.edges [ (min x y, max x y) | (x,y) <- AIM.edgeList g, x /= y ]
 
 dfsgroup_of_real_world_network file = do
   (!nm,!alga,!fgl,!kl) <- graphs_from_file file
@@ -71,17 +73,19 @@ bfsgroup_of_real_world_network file = do
 
 topgroup_of_real_world_network file = do
   (!nm,!alga,!fgl,!kl) <- graphs_from_file file
-  let 
-  return $ bgroup nm [ bench "alga" $ nf AIM.topSort alga
+  return $ bgroup nm [ bench "new-alga" $ nf AIM.topSort alga
+                     , bench "old-alga" $ nf kltop alga
                      , bench "kl" $ nf LG.topSort kl
-                     , bench "fgl" $ nf FGL.topsort fgl ]
+                     , bench "fgl" $ nf FGL.topsort fgl
+                     ]
 
 daggroup_of_real_world_network file = do
   (!nm,!alga,_,_) <- graphs_from_file file
   let !dalga = make_acyclic alga
       !fgl = fgl_of_alga dalga
       !kl = kl_of_alga dalga
-  return $ bgroup nm [ bench "alga" $ nf AIM.topSort dalga
+  return $ bgroup nm [ bench "new-alga" $ nf AIM.topSort dalga
+                     , bench "old-alga" $ nf kltop dalga
                      , bench "kl" $ nf LG.topSort kl
                      , bench "fgl" $ nf FGL.topsort fgl ]
 
@@ -106,7 +110,7 @@ top_sort_dag_bench = do
     defaultMain $ groups
   
 main = do
-  depth_first_bench
-  breadth_first_bench
-  top_sort_bench
+--  depth_first_bench
+--  breadth_first_bench
+--  top_sort_bench
   top_sort_dag_bench
