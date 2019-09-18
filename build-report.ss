@@ -60,7 +60,9 @@
 				       9)))
 			    (apply map list result)))
 		     (map cdr results))))
-    (map cons headers points)))
+    (sort (lambda (x y)
+	    (string<? (car x) (car y)))
+	  (map cons headers points))))
 
 (define (main)
   (let ((results (map report->sexp (reports)))

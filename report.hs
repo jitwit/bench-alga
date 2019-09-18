@@ -101,6 +101,15 @@ topgroup_of_real_world_network file = do
                        , bench "kl" $ nf LG.topSort kl
                        , bench "fgl" $ nf FGL.topsort fgl ]
 
+sccgroup_of_real_world_network file = do
+  (!alga,!fgl,!kl) <- graphs_from_file file
+  let !am_alga = AM.edges $ AIM.edgeList alga
+  return $ bgroup file [ -- 
+                         bench "old-alga" $ nf AM.scc am_alga
+                       , bench "ord-alga" $ nf AM.scc' am_alga
+                       , bench "int-alga" $ nf AIM.scc alga
+                       , bench "fgl-scc"  $ nf FGL.scc fgl ]
+
 daggroup_of_real_world_network file = do
   (!alga,_,_) <- graphs_from_file file
   dalga <- make_acyclic alga
@@ -114,28 +123,34 @@ daggroup_of_real_world_network file = do
 depth_first_bench = do
   groups <- mapM dfsgroup_of_real_world_network =<< real_world_networks
   withArgs ["-o", "depth-first-bench.html","--json","depth-first-bench.json"] $
-    defaultMain $ groups
+    defaultMain groups
 
 breadth_first_bench = do
   groups <- mapM bfsgroup_of_real_world_network =<< real_world_networks
   withArgs ["-o", "breadth-first-bench.html","--json","breadth-first-bench.json"] $
-    defaultMain $ groups
+    defaultMain groups
 
 top_sort_bench = do
   groups <- mapM topgroup_of_real_world_network =<< real_world_networks
   withArgs ["-o", "topological-bench.html","--json","topological-bench.json"] $
-    defaultMain $ groups
+    defaultMain groups
 
 top_sort_dag_bench = do
   groups <- mapM daggroup_of_real_world_network =<< real_world_networks
   withArgs ["-o", "dag-topological-bench.html","--json","dag-topological-bench.json"] $
-    defaultMain $ groups
+    defaultMain groups
+
+scc_bench = do
+  groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
+  withArgs ["-o", "scc-bench.html","--json","scc-bench.json"] $
+    defaultMain groups
 
 write_summary = writeFile "graphs_summary.txt" . unlines =<< summarize_graphs
   
 main = do
   write_summary
-  depth_first_bench
-  breadth_first_bench
-  top_sort_bench
-  top_sort_dag_bench
+  scc_bench
+--  depth_first_bench
+--  breadth_first_bench
+--  top_sort_bench
+--  top_sort_dag_bench
