@@ -27,10 +27,9 @@
 (define (report->sexp file)
   (let ((sexp (format "~a.ss" (path-root file))))
     (system (format "sexp_of_json < ~a > ~a" file sexp))
-    (let* ((results (vector->list
-		      (vector-map result->summary
-				  (criterion-results
-				   (with-input-from-file sexp read)))))
+    (let* ((results (map result->summary
+			 (criterion-results
+			  (with-input-from-file sexp read))))
 	   (graphs (delete-duplicates (map car results) string=?)))
       (cons (path-root file)
 	    (map (lambda (graph)
@@ -38,7 +37,7 @@
 		 graphs)))))
 
 (define (criterion-results json)
-  (vector-ref json 2))
+  (list-ref json 2))
 
 (define (result->summary json)
   (let ((name (string-tokenize (symbol->string

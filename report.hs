@@ -105,10 +105,10 @@ sccgroup_of_real_world_network file = do
   (!alga,!fgl,!kl) <- graphs_from_file file
   let !am_alga = AM.edges $ AIM.edgeList alga
   return $ bgroup file [ -- 
-                         bench "old-alga" $ nf AM.scc am_alga
-                       , bench "ord-alga" $ nf AM.scc' am_alga
-                       , bench "int-alga" $ nf AIM.scc alga
-                       , bench "fgl-scc"  $ nf FGL.scc fgl ]
+                         bench "ord-alga" $ nf AM.scc am_alga
+--                       , bench "ord-alga" $ nf AM.scc' am_alga
+                       , bench "new-alga" $ nf AIM.scc alga
+                       , bench "fgl"  $ nf FGL.scc fgl ]
 
 daggroup_of_real_world_network file = do
   (!alga,_,_) <- graphs_from_file file
