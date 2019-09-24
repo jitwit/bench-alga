@@ -1,6 +1,7 @@
 (import (srfi :1)
 	(srfi :13)
-	(srfi :14))
+	(srfi :14)
+        (chez json))
 
 ;; take a criterion json report and get name and average time
 (define (reports)
@@ -29,7 +30,9 @@
     (system (format "sexp_of_json < ~a > ~a" file sexp))
     (let* ((results (map result->summary
 			 (criterion-results
-			  (with-input-from-file sexp read))))
+                          (with-input-from-file file json-read)
+;;			  (with-input-from-file sexp read)
+                          )))
 	   (graphs (delete-duplicates (map car results) string=?)))
       (cons (path-root file)
 	    (map (lambda (graph)
@@ -41,8 +44,8 @@
 
 (define (result->summary json)
   (let ((name (string-tokenize (symbol->string
-				 (cdr
-				   (assq 'reportName json)))
+                                 (cdr
+                                   (assq 'reportName json)))
 			       (char-set-complement (char-set #\/))))
 	(mean (cdr (assq 'estPoint
 			 (cdr (assq 'anMean

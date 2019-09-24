@@ -91,7 +91,7 @@ dfsgroup_of_real_world_network file = do
 
 bfsgroup_of_real_world_network file = do
   (!alga,!fgl,!kl) <- graphs_from_file file
-  return $ bgroup file [ bench "new-alga" $ nf (AIM.bfsForestFrom [0]) alga
+  return $ bgroup file [ bench "new-alga" $ nf (AIM.bfsForest [0]) alga
                        , bench "fgl" $ nf (FGL.bft 0) fgl ]
 
 topgroup_of_real_world_network file = do
@@ -99,16 +99,15 @@ topgroup_of_real_world_network file = do
   return $ bgroup file [ bench "new-alga" $ nf AIM.topSort alga
                        , bench "old-alga" $ nf kltop alga
                        , bench "kl" $ nf LG.topSort kl
-                       , bench "fgl" $ nf FGL.topsort fgl ]
+                       , bench "fgl" $ nf FGL.topsort' fgl ]
 
-sccgroup_of_real_world_network file = do
-  (!alga,!fgl,!kl) <- graphs_from_file file
-  let !am_alga = AM.edges $ AIM.edgeList alga
-  return $ bgroup file [ -- 
-                         bench "ord-alga" $ nf AM.scc am_alga
---                       , bench "ord-alga" $ nf AM.scc' am_alga
-                       , bench "new-alga" $ nf AIM.scc alga
-                       , bench "fgl"  $ nf FGL.scc fgl ]
+--sccgroup_of_real_world_network file = do
+--  (!alga,!fgl,!kl) <- graphs_from_file file
+--  let !am_alga = AM.edges $ AIM.edgeList alga
+--  return $ bgroup file [ bench "ord-alga" $ nf AM.scc am_alga
+----                       , bench "ord-alga" $ nf AM.scc' am_alga
+--                       , bench "new-alga" $ nf AIM.scc alga
+--                       , bench "fgl"  $ nf FGL.scc fgl ]
 
 daggroup_of_real_world_network file = do
   (!alga,_,_) <- graphs_from_file file
@@ -118,7 +117,7 @@ daggroup_of_real_world_network file = do
   return $ bgroup file [ bench "new-alga" $ nf AIM.topSort dalga
                        , bench "old-alga" $ nf kltop dalga
                        , bench "kl" $ nf LG.topSort kl
-                       , bench "fgl" $ nf FGL.topsort fgl ]
+                       , bench "fgl" $ nf FGL.topsort' fgl ]
 
 depth_first_bench = do
   groups <- mapM dfsgroup_of_real_world_network =<< real_world_networks
@@ -140,17 +139,22 @@ top_sort_dag_bench = do
   withArgs ["-o", "dag-topological-bench.html","--json","dag-topological-bench.json"] $
     defaultMain groups
 
-scc_bench = do
-  groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
-  withArgs ["-o", "scc-bench.html","--json","scc-bench.json"] $
-    defaultMain groups
+--scc_bench = do
+--  groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
+--  withArgs ["-o", "scc-bench.html","--json","scc-bench.json"] $
+--    defaultMain groups
 
 write_summary = writeFile "graphs_summary.txt" . unlines =<< summarize_graphs
+
+sgb_bench = do
+  (am,aim) <- sgb . words <$> readFile "sgb-words.txt"
+  return (aim)
   
 main = do
-  write_summary
-  scc_bench
+--  write_summary
+--  scc_bench
 --  depth_first_bench
 --  breadth_first_bench
---  top_sort_bench
---  top_sort_dag_bench
+  top_sort_bench
+  top_sort_dag_bench
+
