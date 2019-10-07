@@ -43,9 +43,9 @@
   (list-ref json 2))
 
 (define (result->summary json)
-  (let ((name (string-tokenize (symbol->string
-                                 (cdr
-                                   (assq 'reportName json)))
+  (let ((name (string-tokenize ;;(symbol->string)
+			       (cdr
+				 (assq 'reportName json))
 			       (char-set-complement (char-set #\/))))
 	(mean (cdr (assq 'estPoint
 			 (cdr (assq 'anMean
