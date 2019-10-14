@@ -1,7 +1,7 @@
 (import (srfi :1)
 	(srfi :13)
 	(srfi :14)
-        (chez json))
+        (json))
 
 ;; take a criterion json report and get name and average time
 (define (reports)
@@ -14,11 +14,11 @@
 			(string=? graph (car pt)))
 		      result))
 	 (new-alga (list-ref
-		     (car
-		       (filter (lambda (x)
-				 (string=? "new-alga" (list-ref x 1)))
-			       pts))
-		     2)))
+                    (car
+                     (filter (lambda (x)
+                               (string=? "new-alga" (list-ref x 1)))
+                             pts))
+                    2)))
     (map (lambda (pt)
 	   `(,(list-ref pt 1)
 	     ,(/ (list-ref pt 2)
@@ -27,26 +27,26 @@
 
 (define (report->sexp file)
   (let ((sexp (format "~a.ss" (path-root file))))
+    ;;    (format #t "~a ~a" file sexp)
     (system (format "sexp_of_json < ~a > ~a" file sexp))
     (let* ((results (map result->summary
-			 (criterion-results
-                          (with-input-from-file file json-read)
-;;			  (with-input-from-file sexp read)
-                          )))
-	   (graphs (delete-duplicates (map car results) string=?)))
+                         (criterion-results
+                          (with-input-from-file sexp read))))
+           (graphs (delete-duplicates (map car results) string=?)))
       (cons (path-root file)
-	    (map (lambda (graph)
-		   (summarize-result-for graph results))
-		 graphs)))))
+            (map (lambda (graph)
+                   (summarize-result-for graph results))
+                 graphs)))))
 
 (define (criterion-results json)
   (list-ref json 2))
 
 (define (result->summary json)
-  (let ((name (string-tokenize ;;(symbol->string)
-			       (cdr
-				 (assq 'reportName json))
-			       (char-set-complement (char-set #\/))))
+  (let ((name (string-tokenize
+               (symbol->string
+                (cdr
+                 (assq 'reportName json)))
+               (char-set-complement (char-set #\/))))
 	(mean (cdr (assq 'estPoint
 			 (cdr (assq 'anMean
 				    (cdr (assq 'reportAnalysis

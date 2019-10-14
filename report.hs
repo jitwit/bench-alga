@@ -9,11 +9,15 @@ import qualified Data.Graph.Inductive.PatriciaTree as FGL
 import qualified Data.Graph.Inductive.Graph as FGL
 import qualified Data.Graph as LG
 import qualified Algebra.Graph.AdjacencyMap.Algorithm as AM
+import qualified Algebra.Graph.NonEmpty.AdjacencyMap as AMNE
 import qualified Algebra.Graph.AdjacencyMap as AM
 import qualified Algebra.Graph.AdjacencyIntMap.Algorithm as AIM
 import qualified Algebra.Graph.AdjacencyIntMap as AIM
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import qualified Data.IntMap.Strict as IntMap
+import qualified Data.IntSet as IntSet
+import Data.Maybe
 import Data.Bifunctor
 import qualified Data.Graph.Typed as KL
 import Data.List hiding (transpose)
@@ -25,6 +29,8 @@ import Text.Printf
 import qualified Data.Array.Unboxed as A
 import Data.Tree
 import Data.Foldable
+import ReadGraph
+import System.Environment
 
 hamming x y = length $ filter not $ zipWith (==) x y
 
@@ -122,18 +128,35 @@ topgroup_of_real_world_network file = do
 scc_of_fb = do
   (!alga,!fgl,!kl) <- graphs_from_file "facebook_combined.txt"
   let !am_alga = AM.edges $ AIM.edgeList alga
-  return $ bgroup "fb" [ bench "old-alga" $ nf klscc am_alga
-                       , bench "ord-alga" $ nf AM.scc am_alga
-                       , bench "new-alga" $ nf AIM.scc alga
+  return $ bgroup "fb" [ bench "KL-alga" $ nf klscc am_alga
+                       , bench "AM-alga" $ nf AM.scc am_alga
+                       , bench "AIM-alga" $ nf AIM.scc alga
                        ]
+
+scc_of_twitter = do
+  (!alga,fgl,kl) <- graphs_from_file "twitter_combined.txt"
+  let !amalga = AM.edges $ AIM.edgeList alga
+      !v = AIM.vertexCount alga
+      !e = AIM.edgeCount alga
+      !scc = AM.vertexCount $ AIM.scc alga
+      gname = printf "|V| = %d |E| = %d |SCC| = %d" v e scc
+  return $ bgroup gname [
+                              bench "AM-alga" $ nf AM.scc amalga
+                            , bench "AIM-alga" $ nf AIM.scc alga
+--                            bench "containers" $ nf LG.scc g_cont
+                            , bench "KL-alga" $ nf klscc amalga
+                            ]
 
 sccgroup_of_real_world_network file = do
   (!alga,!fgl,!kl) <- networks_from_file file
   let !am_alga = AM.edges $ AIM.edgeList alga
-  return $ bgroup file [ bench "old-alga" $ nf klscc am_alga
-                       , bench "ord-alga" $ nf AM.scc am_alga
-                       , bench "new-alga" $ nf AIM.scc alga
-                       ]
+      !v = AIM.vertexCount alga
+      !e = AIM.edgeCount alga
+      gname = printf "|V| = %d |E| = %d |SCC| = %d" v e (AM.vertexCount $ AIM.scc alga)
+  return $ bgroup gname [ bench "KL-alga" $ nf klscc am_alga
+                        , bench "AM-alga" $ nf AM.scc am_alga
+                        , bench "AIM-alga" $ nf AIM.scc alga
+                        ]
 
 daggroup_of_real_world_network file = do
   (!alga,_,_) <- networks_from_file file
@@ -166,19 +189,30 @@ top_sort_dag_bench = do
     defaultMain groups
 
 scc_bench = do
---  groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
-  fb_group <- scc_of_fb
+  groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
+--  grp <- scc_of_twitter
   withArgs ["-o", "scc-bench.html","--json","scc-bench.json"] $
-    defaultMain [fb_group]
+    defaultMain
+      groups
+--       [grp]
 
 write_summary = writeFile "graphs_summary.txt" . unlines =<< summarize_graphs
 
 sgb_bench = do
   (am,aim) <- sgb . words <$> readFile "sgb-words.txt"
   return (aim)
-  
+
+
+
 main = do
---  write_summary
+--  getArgs >>= \case
+--    [file] -> do g <- AM.edges <$> readGraph file
+--                 print $ maximum $ map AMNE.vertexCount $ AM.vertexList $ AM.scc g
+--  (alga,fgl,!kl) <- graphs_from_file "twitter_combined.txt"
+--  print $ length $ LG.scc kl
+--  print $ AIM.edgeCount alga
+--  print $ maximum $ map AIM.edgeCount $ AM.vertexList $ AIM.scc alga
+  --  write_summary
   scc_bench
 --  depth_first_bench
 --  breadth_first_bench
