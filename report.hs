@@ -125,14 +125,6 @@ topgroup_of_real_world_network file = do
                        , bench "kl" $ nf LG.topSort kl
                        , bench "fgl" $ nf FGL.topsort' fgl ]
 
-scc_of_fb = do
-  (!alga,!fgl,!kl) <- graphs_from_file "facebook_combined.txt"
-  let !am_alga = AM.edges $ AIM.edgeList alga
-  return $ bgroup "fb" [ bench "KL-alga" $ nf klscc am_alga
-                       , bench "AM-alga" $ nf AM.scc am_alga
-                       , bench "AIM-alga" $ nf AIM.scc alga
-                       ]
-
 scc_of_twitter = do
   (!alga,fgl,kl) <- graphs_from_file "twitter_combined.txt"
   let !amalga = AM.edges $ AIM.edgeList alga
@@ -143,7 +135,19 @@ scc_of_twitter = do
   return $ bgroup gname [
                               bench "AM-alga" $ nf AM.scc amalga
                             , bench "AIM-alga" $ nf AIM.scc alga
---                            bench "containers" $ nf LG.scc g_cont
+                            , bench "KL-alga" $ nf klscc amalga
+                            ]
+
+scc_of_fb = do
+  (!alga,fgl,kl) <- graphs_from_file "facebook_combined.txt"
+  let !amalga = AM.edges $ AIM.edgeList alga
+      !v = AIM.vertexCount alga
+      !e = AIM.edgeCount alga
+      !scc = AM.vertexCount $ AIM.scc alga
+      gname = printf "|V| = %d |E| = %d |SCC| = %d" v e scc
+  return $ bgroup gname [
+                              bench "AM-alga" $ nf AM.scc amalga
+                            , bench "AIM-alga" $ nf AIM.scc alga
                             , bench "KL-alga" $ nf klscc amalga
                             ]
 
@@ -190,19 +194,21 @@ top_sort_dag_bench = do
 
 scc_bench = do
   groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
---  grp <- scc_of_twitter
   withArgs ["-o", "scc-bench.html","--json","scc-bench.json"] $
-    defaultMain
-      groups
---       [grp]
+    defaultMain groups
+
+rw_scc_bench = do
+  grpfb <- scc_of_fb
+  grptwi <- scc_of_twitter
+  withArgs ["-o", "rw-scc-bench.html","--json","rw-scc-bench.json"] $
+    defaultMain [grpfb,grptwi]
+
 
 write_summary = writeFile "graphs_summary.txt" . unlines =<< summarize_graphs
 
 sgb_bench = do
   (am,aim) <- sgb . words <$> readFile "sgb-words.txt"
   return (aim)
-
-
 
 main = do
 --  getArgs >>= \case
@@ -213,7 +219,8 @@ main = do
 --  print $ AIM.edgeCount alga
 --  print $ maximum $ map AIM.edgeCount $ AM.vertexList $ AIM.scc alga
   --  write_summary
-  scc_bench
+--  scc_bench
+  rw_scc_bench
 --  depth_first_bench
 --  breadth_first_bench
 --  top_sort_bench
