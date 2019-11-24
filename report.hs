@@ -57,8 +57,11 @@ read_real_world = AIM.edges . map edge_of_line . drop 2 . lines where
   edge_of_line (map read . words -> [s,t]) = (s,t)
 
 graphs_from_file file = do
-  aim <- read_real_world <$> readFile file
-  return (aim, fgl_of_alga aim, kl_of_alga aim)
+  es <- read_graph file
+  let aim = AIM.edges es
+      fgl = fgl_of_alga aim
+      kl = kl_of_alga aim
+  return (aim,fgl,kl)
 
 networks_from_file = graphs_from_file . ("asp/Networks/"++)
 
@@ -106,12 +109,14 @@ make_acyclic g = do
   let arr = A.listArray (minimum vs, maximum vs) ps :: A.UArray Int Int
   return $ AIM.edges [ (arr A.! min x y, arr A.! max x y) | (x,y) <- AIM.edgeList g, x /= y ]
 
-dfsgroup_of_real_world_network file = do
-  (!alga,!fgl,!kl) <- networks_from_file file
-  return $ bgroup file [ bench "new-alga" $ nf AIM.dfsForest alga
-                       , bench "old-alga" $ nf kldfs' alga
-                       , bench "fgl" $ nf FGL.dff' fgl
-                       , bench "kl" $ nf LG.dff kl ]
+dfsgroup_of_network file = do
+  (!alga,!fgl,!kl) <- graphs_from_file file
+  let gname = printf "|V|=%d |E|=%d" (AIM.vertexCount alga) (AIM.edgeCount alga)
+  return $ bgroup gname [ bench "alga-aim" $ nf AIM.dfsForest alga
+                        , bench "alga-kl" $ nf kldfs' alga
+                        , bench "fgl" $ nf FGL.dff' fgl
+--                        , bench "containers" $ nf LG.dff kl
+                        ]
 
 --bfsgroup_of_real_world_network file = do
 --  (!alga,!fgl,!kl) <- networks_from_file file
@@ -144,12 +149,11 @@ scc_of_fb = do
       !v = AIM.vertexCount alga
       !e = AIM.edgeCount alga
       !scc = AM.vertexCount $ AIM.scc alga
-      gname = printf "|V| = %d |E| = %d |SCC| = %d" v e scc
-  return $ bgroup gname [
-                              bench "AM-alga" $ nf AM.scc amalga
-                            , bench "AIM-alga" $ nf AIM.scc alga
-                            , bench "KL-alga" $ nf klscc amalga
-                            ]
+      gname = printf "|V|=%d |E|=%d |SCC|=%d" v e scc
+  return $ bgroup gname [ bench "AM-alga" $ nf AM.scc amalga
+                        , bench "AIM-alga" $ nf AIM.scc alga
+                        , bench "KL-alga" $ nf klscc amalga
+                        ]
 
 sccgroup_of_real_world_network file = do
   (!alga,!fgl,!kl) <- networks_from_file file
@@ -162,6 +166,20 @@ sccgroup_of_real_world_network file = do
                         , bench "AIM-alga" $ nf AIM.scc alga
                         ]
 
+scc_misc = withArgs ["-o","scc_misc.html"] $ defaultMain grps where
+  grps = zipWith sccgroup_of_misc names graphs
+  names = ["vertices [0..1000]+circuit [1001..10000]"
+          ,"overlays [ edge x (x+1000) | x <- [0..1000] ] + circuit [1001..10000]]"]
+  graphs = [AIM.vertices [0..1000] + AIM.circuit [1001..10000]
+           ,AIM.overlays [ AIM.edge x (x+1000) | x <- [0..1000] ] + AIM.circuit [1001..10000]]
+
+
+sccgroup_of_misc misc_name misc =
+  let am_misc = AM.edges $ AIM.edgeList misc
+   in bgroup misc_name [ bench "KL-alga" $ nf klscc am_misc
+                       , bench "AM-alga" $ nf AM.scc am_misc
+                       , bench "AIM-alga" $ nf AIM.scc misc ]
+
 daggroup_of_real_world_network file = do
   (!alga,_,_) <- networks_from_file file
   dalga <- make_acyclic alga
@@ -172,8 +190,10 @@ daggroup_of_real_world_network file = do
                        , bench "kl" $ nf LG.topSort kl
                        , bench "fgl" $ nf FGL.topsort' fgl ]
 
+social_files = ["facebook_combined.txt","twitter_combined.txt"]
+
 depth_first_bench = do
-  groups <- mapM dfsgroup_of_real_world_network =<< real_world_networks
+  groups <- mapM dfsgroup_of_network social_files
   withArgs ["-o", "depth-first-bench.html","--json","depth-first-bench.json"] $
     defaultMain groups
 
@@ -203,7 +223,6 @@ rw_scc_bench = do
   withArgs ["-o", "rw-scc-bench.html","--json","rw-scc-bench.json"] $
     defaultMain [grpfb,grptwi]
 
-
 write_summary = writeFile "graphs_summary.txt" . unlines =<< summarize_graphs
 
 sgb_bench = do
@@ -211,6 +230,7 @@ sgb_bench = do
   return (aim)
 
 main = do
+  scc_misc
 --  getArgs >>= \case
 --    [file] -> do g <- AM.edges <$> readGraph file
 --                 print $ maximum $ map AMNE.vertexCount $ AM.vertexList $ AM.scc g
@@ -220,7 +240,7 @@ main = do
 --  print $ maximum $ map AIM.edgeCount $ AM.vertexList $ AIM.scc alga
   --  write_summary
 --  scc_bench
-  rw_scc_bench
+--  rw_scc_bench
 --  depth_first_bench
 --  breadth_first_bench
 --  top_sort_bench
