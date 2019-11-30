@@ -65,7 +65,7 @@ graphs_from_file file = do
 
 networks_from_file = graphs_from_file . ("asp/Networks/"++)
 
-real_world_networks = listDirectory "asp/Networks"
+real_world_networks = take 5 <$> listDirectory "asp/Networks"
 
 -- old alga definitions
 kldfs g = KL.dfsForest (KL.fromAdjacencyMap g)
@@ -137,10 +137,9 @@ scc_of_twitter = do
       !e = AIM.edgeCount alga
       !scc = AM.vertexCount $ AIM.scc alga
       gname = printf "|V| = %d |E| = %d |SCC| = %d" v e scc
-  return $ bgroup gname [
-                              bench "AM-alga" $ nf AM.scc amalga
-                            , bench "AIM-alga" $ nf AIM.scc alga
-                            , bench "KL-alga" $ nf klscc amalga
+  return $ bgroup gname [ bench "AM-alga" $ nf AM.scc amalga
+                        , bench "AIM-alga" $ nf AIM.scc alga
+--                            , bench "KL-alga" $ nf klscc amalga
                             ]
 
 scc_of_fb = do
@@ -230,7 +229,15 @@ sgb_bench = do
   return (aim)
 
 main = do
-  scc_misc
+    twitter <- AIM.edges <$> read_graph "asp/Networks/n5.edges"
+    print $ AM.vertexCount $ AIM.scc twitter
+--  (g,h,k) <- graphs_from_file "asp/Networks/n5.edges"
+--  let !am = AM.edges $ AIM.edgeList g
+--  scc_bench
+--  rw_scc_bench
+--  print $ length $ LG.scc k
+--  print $ AM.vertexCount $ AM.scc am 
+--  scc_misc
 --  getArgs >>= \case
 --    [file] -> do g <- AM.edges <$> readGraph file
 --                 print $ maximum $ map AMNE.vertexCount $ AM.vertexList $ AM.scc g
