@@ -65,7 +65,7 @@ graphs_from_file file = do
 
 networks_from_file = graphs_from_file . ("asp/Networks/"++)
 
-real_world_networks = take 5 <$> listDirectory "asp/Networks"
+real_world_networks = take 8 <$> listDirectory "asp/Networks"
 
 -- old alga definitions
 kldfs g = KL.dfsForest (KL.fromAdjacencyMap g)
@@ -133,52 +133,63 @@ topgroup_of_real_world_network file = do
 scc_of_twitter = do
   (!alga,fgl,kl) <- graphs_from_file "twitter_combined.txt"
   let !amalga = AM.edges $ AIM.edgeList alga
+      !v = AM.vertexCount amalga
+      !e = AM.edgeCount amalga
+      !scc = AM.vertexCount $ AM.scc amalga
+      gname = printf "|V|=%d |E|=%d |SCC|=%d" v e scc
+  return $ bgroup gname [ bench "AM-alga" $ nf AM.scc amalga
+--                        , bench "AIM-alga" $ nf AIM.scc alga
+--                        , bench "KL-alga" $ nf KL.scc amalga
+                        ]
+top_of_file file = do
+  (!alga,!fgl,!kl) <- graphs_from_file file
+  let !amalga = AM.edges $ AIM.edgeList alga
       !v = AIM.vertexCount alga
       !e = AIM.edgeCount alga
-      !scc = AM.vertexCount $ AIM.scc alga
-      gname = printf "|V| = %d |E| = %d |SCC| = %d" v e scc
-  return $ bgroup gname [ bench "AM-alga" $ nf AM.scc amalga
-                        , bench "AIM-alga" $ nf AIM.scc alga
---                            , bench "KL-alga" $ nf klscc amalga
-                            ]
+      gname = printf "|V|=%d |E|=%d" v e
+  return $ bgroup gname [ bench "AM-alga" $ nf AM.topSort amalga
+                        , bench "AIM-alga" $ nf AIM.topSort alga
+                        , bench "KL-alga" $ nf kltop alga
+                        , bench "LG-alga" $ nf LG.topSort kl
+                        ]
 
 scc_of_fb = do
   (!alga,fgl,kl) <- graphs_from_file "facebook_combined.txt"
   let !amalga = AM.edges $ AIM.edgeList alga
-      !v = AIM.vertexCount alga
-      !e = AIM.edgeCount alga
-      !scc = AM.vertexCount $ AIM.scc alga
+      !v = AM.vertexCount amalga
+      !e = AM.edgeCount amalga
+      !scc = AM.vertexCount $ AM.scc amalga
       gname = printf "|V|=%d |E|=%d |SCC|=%d" v e scc
   return $ bgroup gname [ bench "AM-alga" $ nf AM.scc amalga
-                        , bench "AIM-alga" $ nf AIM.scc alga
-                        , bench "KL-alga" $ nf klscc amalga
+--                        , bench "AIM-alga" $ nf AIM.scc alga
+                        , bench "KL-alga" $ nf KL.scc amalga
                         ]
 
 sccgroup_of_real_world_network file = do
-  (!alga,!fgl,!kl) <- networks_from_file file
-  let !am_alga = AM.edges $ AIM.edgeList alga
-      !v = AIM.vertexCount alga
-      !e = AIM.edgeCount alga
-      gname = printf "|V| = %d |E| = %d |SCC| = %d" v e (AM.vertexCount $ AIM.scc alga)
-  return $ bgroup gname [ bench "KL-alga" $ nf klscc am_alga
-                        , bench "AM-alga" $ nf AM.scc am_alga
-                        , bench "AIM-alga" $ nf AIM.scc alga
+  (!aimalga,!fgl,!kl) <- networks_from_file file
+  let !alga = AM.edges $ AIM.edgeList aimalga
+      !v = AM.vertexCount alga
+      !e = AM.edgeCount alga
+      gname = printf "|V|=%d |E|=%d |SCC|=%d" v e (AM.vertexCount $ AM.scc alga)
+  return $ bgroup gname [ bench "KL-alga" $ nf KL.scc alga
+                        , bench "AM-alga" $ nf AM.scc alga
+--                        , bench "AIM-alga" $ nf AIM.scc alga
                         ]
 
-scc_misc = withArgs ["-o","scc_misc.html"] $ defaultMain grps where
-  grps = zipWith sccgroup_of_misc names graphs
-  names = ["vertices [0..1000]+circuit [1001..10000]"
-          ,"overlays [ edge x (x+1000) | x <- [0..1000] ] + circuit [1001..10000]]"]
-  graphs = [AIM.vertices [0..1000] + AIM.circuit [1001..10000]
-           ,AIM.overlays [ AIM.edge x (x+1000) | x <- [0..1000] ] + AIM.circuit [1001..10000]]
+--scc_misc = withArgs ["-o","scc_misc.html"] $ defaultMain grps where
+--  grps = zipWith sccgroup_of_misc names graphs
+--  names = ["vertices [0..1000]+circuit [1001..10000]"
+--          ,"overlays [ edge x (x+1000) | x <- [0..1000] ] + circuit [1001..10000]]"]
+--  graphs = [AIM.vertices [0..1000] + AIM.circuit [1001..10000]
+--           ,AIM.overlays [ AIM.edge x (x+1000) | x <- [0..1000] ] + AIM.circuit [1001..10000]]
+--
 
-
-sccgroup_of_misc misc_name misc =
-  let am_misc = AM.edges $ AIM.edgeList misc
-   in bgroup misc_name [ bench "KL-alga" $ nf klscc am_misc
-                       , bench "AM-alga" $ nf AM.scc am_misc
-                       , bench "AIM-alga" $ nf AIM.scc misc ]
-
+--sccgroup_of_misc misc_name misc =
+--  let am_misc = AM.edges $ AIM.edgeList misc
+--   in bgroup misc_name [ bench "KL-alga" $ nf KL.scc am_misc
+--                       , bench "AM-alga" $ nf AM.scc am_misc
+--                       , bench "AIM-alga" $ nf AIM.scc misc ]
+--
 daggroup_of_real_world_network file = do
   (!alga,_,_) <- networks_from_file file
   dalga <- make_acyclic alga
@@ -201,15 +212,15 @@ depth_first_bench = do
 --  withArgs ["-o", "breadth-first-bench.html","--json","breadth-first-bench.json"] $
 --    defaultMain groups
 
-top_sort_bench = do
-  groups <- mapM topgroup_of_real_world_network =<< real_world_networks
-  withArgs ["-o", "topological-bench.html","--json","topological-bench.json"] $
-    defaultMain groups
+--top_sort_bench = do
+--  groups <- mapM topgroup_of_real_world_network =<< real_world_networks
+--  withArgs ["-o", "topological-bench.html","--json","topological-bench.json"] $
+--    defaultMain groups
 
-top_sort_dag_bench = do
-  groups <- mapM daggroup_of_real_world_network =<< real_world_networks
-  withArgs ["-o", "dag-topological-bench.html","--json","dag-topological-bench.json"] $
-    defaultMain groups
+top_sort_bench = do
+  gs <- mapM top_of_file ["facebook_combined.txt","twitter_combined.txt"]
+  withArgs ["-o", "topological-bench.html","--json","topological-bench.json"] $
+    defaultMain gs
 
 scc_bench = do
   groups <- mapM sccgroup_of_real_world_network =<< real_world_networks
@@ -221,7 +232,7 @@ rw_scc_bench = do
   grptwi <- scc_of_twitter
   withArgs ["-o", "rw-scc-bench.html","--json","rw-scc-bench.json"] $
     defaultMain [grpfb,grptwi]
-
+--
 write_summary = writeFile "graphs_summary.txt" . unlines =<< summarize_graphs
 
 sgb_bench = do
@@ -229,12 +240,14 @@ sgb_bench = do
   return (aim)
 
 main = do
-    twitter <- AIM.edges <$> read_graph "asp/Networks/n5.edges"
-    print $ AM.vertexCount $ AIM.scc twitter
+--  top_sort_bench
+--    twitter <- AIM.edges <$> read_graph "twitter_combined.txt" -- "asp/Networks/n5.edges"
+--    print $ AM.vertexCount $ AIM.scc twitter
 --  (g,h,k) <- graphs_from_file "asp/Networks/n5.edges"
 --  let !am = AM.edges $ AIM.edgeList g
 --  scc_bench
---  rw_scc_bench
+  rw_scc_bench
+
 --  print $ length $ LG.scc k
 --  print $ AM.vertexCount $ AM.scc am 
 --  scc_misc
